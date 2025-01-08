@@ -1,17 +1,22 @@
+import 'dart:convert';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert'; // استيراد مكتبة json
+
 import '../../features/dialy/data/entity/daily_entity.dart';
 
 class AddDailyEntryDialog extends StatefulWidget {
   final void Function(DailyEntry) onEntrySaved;
   final Color tableColor;
+  final DailyEntry? entryToEdit;
 
   const AddDailyEntryDialog({
     super.key,
     required this.onEntrySaved,
     required this.tableColor,
+    this.entryToEdit,
   });
 
   @override
@@ -28,10 +33,19 @@ class _AddDailyEntryDialogState extends State<AddDailyEntryDialog> {
   final _syrianForHimController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
 
-  bool isGoldForUsFilled = false;
-  bool isSyrianForUsFilled = false;
-  bool isGoldForHimFilled = false;
-  bool isSyrianForHimFilled = false;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.entryToEdit != null) {
+      _nameController.text = widget.entryToEdit!.name;
+      _noteController.text = widget.entryToEdit!.notes;
+      _goldForUsController.text = widget.entryToEdit!.goldForUs.toString();
+      _syrianForUsController.text = widget.entryToEdit!.syrianForUs.toString();
+      _goldForHimController.text = widget.entryToEdit!.goldForHim.toString();
+      _syrianForHimController.text = widget.entryToEdit!.syrianForHim.toString();
+      _selectedDate = widget.entryToEdit!.date;
+    }
+  }
 
   @override
   void dispose() {
@@ -47,7 +61,7 @@ class _AddDailyEntryDialogState extends State<AddDailyEntryDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Center(child: Text('إضافة مدخل يومي')),
+      title: Center(child: Text(widget.entryToEdit == null ? 'إضافة مدخل يومي' : 'تعديل المدخل')),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -56,9 +70,7 @@ class _AddDailyEntryDialogState extends State<AddDailyEntryDialog> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center, // توسيط العناصر داخل العمود
                 children: [
-                  // السطر الأول: الاسم، التاريخ، البيان
                   _buildTextField(_nameController, 'الاسم'),
                   const SizedBox(height: 8.0),
                   GestureDetector(
@@ -66,8 +78,8 @@ class _AddDailyEntryDialogState extends State<AddDailyEntryDialog> {
                       final DateTime? picked = await showDatePicker(
                         context: context,
                         initialDate: _selectedDate,
-                        firstDate: _selectedDate, // تحديد أول تاريخ قابل للاختيار ليكون اليوم الحالي
-                        lastDate: _selectedDate,  // تحديد آخر تاريخ قابل للاختيار ليكون اليوم الحالي
+                        firstDate: _selectedDate,
+                        lastDate: _selectedDate,
                       );
                       if (picked != null && picked != _selectedDate) {
                         setState(() {
@@ -78,39 +90,19 @@ class _AddDailyEntryDialogState extends State<AddDailyEntryDialog> {
                     child: _buildTextField(
                       TextEditingController(text: DateFormat('yyyy-MM-dd').format(_selectedDate)),
                       'التاريخ',
-                      enabled: false, // لمنع التعديل يدويًا
+                      enabled: false,
                     ),
                   ),
                   const SizedBox(height: 8.0),
                   _buildTextField(_noteController, 'البيان'),
                   const SizedBox(height: 16.0),
-
-                  // السطر الثاني: ذهب لنا، سوري لنا
-                  _buildGoldInputField(_goldForUsController, 'ذهب لنا', (value) {
-                    setState(() {
-                      isGoldForUsFilled = value.isNotEmpty;
-                    });
-                  }),
+                  _buildGoldInputField(_goldForUsController, 'ذهب لنا'),
                   const SizedBox(height: 8.0),
-                  _buildGoldInputField(_syrianForUsController, 'سوري لنا', (value) {
-                    setState(() {
-                      isSyrianForUsFilled = value.isNotEmpty;
-                    });
-                  }),
+                  _buildGoldInputField(_syrianForUsController, 'سوري لنا'),
                   const SizedBox(height: 16.0),
-
-                  // السطر الثالث: ذهب له، سوري له
-                  _buildGoldInputField(_goldForHimController, 'ذهب له', (value) {
-                    setState(() {
-                      isGoldForHimFilled = value.isNotEmpty;
-                    });
-                  }),
+                  _buildGoldInputField(_goldForHimController, 'ذهب له'),
                   const SizedBox(height: 8.0),
-                  _buildGoldInputField(_syrianForHimController, 'سوري له', (value) {
-                    setState(() {
-                      isSyrianForHimFilled = value.isNotEmpty;
-                    });
-                  }),
+                  _buildGoldInputField(_syrianForHimController, 'سوري له'),
                 ],
               ),
             ),
@@ -138,8 +130,7 @@ class _AddDailyEntryDialogState extends State<AddDailyEntryDialog> {
               }
 
               final prefs = await SharedPreferences.getInstance();
-              int? id = prefs.getInt('lastEntryId') ?? 0;
-              id++;
+              int id = (prefs.getInt('lastEntryId') ?? 0) + 1;
               await prefs.setInt('lastEntryId', id);
 
               Map<String, dynamic> entryData = {
@@ -185,48 +176,33 @@ class _AddDailyEntryDialogState extends State<AddDailyEntryDialog> {
       child: TextFormField(
         controller: controller,
         enabled: enabled,
-        textAlign: TextAlign.center, // توسيط النص داخل الحقل
+        textAlign: TextAlign.center,
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(
-            textBaseline: TextBaseline.alphabetic, // لضمان التوسيط
-          ),
-          floatingLabelBehavior: FloatingLabelBehavior.auto, // تحريك الـlabel داخل الحقل
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
           ),
           filled: true,
           fillColor: Colors.grey.shade100,
-          contentPadding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
         ),
         validator: (value) => value == null || value.isEmpty ? 'الرجاء إدخال $label' : null,
       ),
     );
   }
 
-  Widget _buildGoldInputField(TextEditingController controller, String label, ValueChanged<String> onChanged) {
+  Widget _buildGoldInputField(TextEditingController controller, String label) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextFormField(
         controller: controller,
-        textAlign: TextAlign.center, // توسيط النص داخل الحقل
+        textAlign: TextAlign.center,
         decoration: InputDecoration(
           labelText: label,
-
-          labelStyle: TextStyle(
-
-            textBaseline: TextBaseline.alphabetic,
-            // لضمان التوسيط
-          ),
-          floatingLabelBehavior: FloatingLabelBehavior.auto, // تحريك الـlabel داخل الحقل
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
           ),
           filled: true,
           fillColor: Colors.grey.shade100,
-          contentPadding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
         ),
         keyboardType: TextInputType.number,
         validator: (value) {
@@ -234,13 +210,7 @@ class _AddDailyEntryDialogState extends State<AddDailyEntryDialog> {
           if (double.tryParse(value) == null) return 'الرجاء إدخال رقم صحيح';
           return null;
         },
-        onChanged: (value) {
-          if (value.isNotEmpty && !value.startsWith('"') && !value.endsWith('"')) {
-            onChanged('"$value"');
-          } else {
-            onChanged(value);
-          }
-        },
       ),
     );
-  }}
+  }
+}

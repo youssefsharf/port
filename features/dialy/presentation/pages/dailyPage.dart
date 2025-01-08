@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../../core/widgets/add.dart';
-import '../../data/entity/daily_entity.dart'; // تعديل المسار حسب المكان الذي يحتوي على الكلاس
+import '../../../../core/widgets/add.dart'; // تعديل المسار حسب المكان الذي يحتوي على الكلاس
+import '../../data/entity/daily_entity.dart'; // تأكد من أن لديك كلاس DailyEntry مع دوال toJson و fromJson
 
 class DailyPage extends StatefulWidget {
   final String title;
@@ -23,26 +23,79 @@ class _DailyPageState extends State<DailyPage> {
   List<DailyEntry> dailyEntries = [];
   bool isDataLoaded = false;
 
-  // دالة لتحميل المدخلات من SharedPreferences
-  Future<void> _loadEntries() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? entries = prefs.getStringList('dailyEntries');
-
-    if (entries != null) {
-      setState(() {
-        dailyEntries = entries.map((entry) {
-          final Map<String, dynamic> data = jsonDecode(entry);
-          return DailyEntry.fromJson(data);  // تأكد من أن لديك دالة fromJson في كلاس DailyEntry
-        }).toList();
-        isDataLoaded = true;
-      });
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     _loadEntries();  // تحميل المدخلات عند بدء الصفحة
+  }
+
+  // دالة لتحميل المدخلات من SharedPreferences
+  Future<void> _loadEntries() async {
+    setState(() {
+      isDataLoaded = false;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? entries = prefs.getStringList('dailyEntries');
+
+    setState(() {
+      dailyEntries = entries?.map((entry) => DailyEntry.fromJson(jsonDecode(entry))).toList() ?? [];
+      isDataLoaded = true;
+    });
+  }
+
+  // دالة لحفظ المدخلات في SharedPreferences
+  Future<void> _updateEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> entries = dailyEntries.map((entry) => jsonEncode(entry.toJson())).toList();
+    await prefs.setStringList('dailyEntries', entries);
+  }
+
+  // دالة لتحرير المدخل أو إضافة مدخل جديد
+  Future<void> _handleEntry(DailyEntry? entry) async {
+    final DailyEntry? result = await showDialog<DailyEntry>(
+      context: context,
+      builder: (BuildContext context) {
+        return AddDailyEntryDialog(
+          tableColor: widget.tableColor,
+          entryToEdit: entry,
+          onEntrySaved: (DailyEntry newEntry) {
+            if (entry == null) {
+              setState(() {
+                dailyEntries.add(newEntry);
+              });
+            } else {
+              setState(() {
+                int index = dailyEntries.indexOf(entry);
+                if (index != -1) {
+                  dailyEntries[index] = newEntry;
+                }
+              });
+            }
+            _updateEntries(); // حفظ المدخلات بعد التعديل أو الإضافة
+          },
+        );
+      },
+    );
+  }
+
+  // دالة لحذف المدخل
+  Future<void> _deleteEntry(DailyEntry entry) async {
+    setState(() {
+      dailyEntries.remove(entry);
+    });
+    _updateEntries(); // حفظ المدخلات بعد الحذف
+  }
+
+  // دالة لبناء النصوص مع المحاذاة المركزية
+  Widget _buildCenteredText(String text) {
+    return Center(
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 14),
+      ),
+    );
   }
 
   @override
@@ -88,6 +141,7 @@ class _DailyPageState extends State<DailyPage> {
                     DataColumn(label: _buildCenteredText('سوري لنا')),
                     DataColumn(label: _buildCenteredText('ذهب له')),
                     DataColumn(label: _buildCenteredText('سوري له')),
+                    DataColumn(label: _buildCenteredText('إجراءات')),
                   ],
                   rows: dailyEntries.map((entry) {
                     return DataRow(cells: [
@@ -98,64 +152,37 @@ class _DailyPageState extends State<DailyPage> {
                       DataCell(_buildCenteredText(entry.syrianForUs.toString())),
                       DataCell(_buildCenteredText(entry.goldForHim.toString())),
                       DataCell(_buildCenteredText(entry.syrianForHim.toString())),
+                      DataCell(
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _handleEntry(entry), // تحرير المدخل
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteEntry(entry), // حذف المدخل
+                            ),
+                          ],
+                        ),
+                      ),
                     ]);
                   }).toList(),
                 ),
               ),
             )
-                : Center(
-              child: Text('لا توجد مدخلات حالياً'),
-            ),
+                : Center(child: CircularProgressIndicator()), // مؤشر التحميل أثناء انتظار البيانات
           ],
         ),
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 30.0, right: 20.0),
         child: FloatingActionButton(
-          onPressed: () async {
-            final DailyEntry? newEntry = await showDialog<DailyEntry>(
-              context: context,
-              builder: (BuildContext context) {
-                return AddDailyEntryDialog(
-                  tableColor: widget.tableColor,
-                  onEntrySaved: (DailyEntry entry) {
-                    setState(() {
-                      dailyEntries.add(entry);
-                      isDataLoaded = true;
-                    });
-                    _saveEntry(entry);  // حفظ المدخل في SharedPreferences
-                  },
-                );
-              },
-            );
-          },
+          onPressed: () => _handleEntry(null), // إضافة مدخل جديد
           backgroundColor: widget.tableColor,
           child: const Icon(Icons.add, color: Colors.white),
         ),
-      ),
-    );
-  }
-
-  // دالة لحفظ المدخل الجديد في SharedPreferences
-  Future<void> _saveEntry(DailyEntry entry) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> entries = prefs.getStringList('dailyEntries') ?? [];
-
-    // تحويل الكائن إلى JSON ثم إضافته إلى القائمة
-    String entryJson = jsonEncode(entry.toJson());  // تأكد من أن لديك دالة toJson في كلاس DailyEntry
-    entries.add(entryJson);
-
-    // حفظ المدخلات مرة أخرى
-    await prefs.setStringList('dailyEntries', entries);
-  }
-
-  // دالة لبناء النصوص مع المحاذاة المركزية
-  Widget _buildCenteredText(String text) {
-    return Center(
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 14),
       ),
     );
   }
