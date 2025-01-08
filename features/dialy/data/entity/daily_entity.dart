@@ -21,7 +21,7 @@ class DailyEntry {
     required this.tableColor,
   });
 
-  // تحويل المدخل إلى JSON (للإظهار فقط)
+  // تحويل الكائن إلى JSON
   Map<String, dynamic> toJson() {
     return {
       'name': name,
@@ -31,11 +31,11 @@ class DailyEntry {
       'syrianForUs': syrianForUs,
       'goldForHim': goldForHim,
       'syrianForHim': syrianForHim,
-      'tableColor': tableColor.value.toString(),
+      'tableColor': tableColor.value.toString(),  // تحويل اللون إلى قيمة رقمية
     };
   }
 
-  // إنشاء DailyEntry من JSON (لإظهار المدخلات فقط)
+  // تحويل JSON إلى الكائن
   factory DailyEntry.fromJson(Map<String, dynamic> json) {
     return DailyEntry(
       name: json['name'],

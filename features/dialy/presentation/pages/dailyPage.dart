@@ -1,8 +1,9 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/widgets/add.dart';
-import '../../data/entity/daily_entity.dart';
+import '../../data/entity/daily_entity.dart'; // تعديل المسار حسب المكان الذي يحتوي على الكلاس
 
 class DailyPage extends StatefulWidget {
   final String title;
@@ -22,12 +23,26 @@ class _DailyPageState extends State<DailyPage> {
   List<DailyEntry> dailyEntries = [];
   bool isDataLoaded = false;
 
-  // دالة لتحميل المدخلات
-  void _loadEntries(List<DailyEntry> newEntries) {
-    setState(() {
-      dailyEntries = newEntries;
-      isDataLoaded = true;
-    });
+  // دالة لتحميل المدخلات من SharedPreferences
+  Future<void> _loadEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? entries = prefs.getStringList('dailyEntries');
+
+    if (entries != null) {
+      setState(() {
+        dailyEntries = entries.map((entry) {
+          final Map<String, dynamic> data = jsonDecode(entry);
+          return DailyEntry.fromJson(data);  // تأكد من أن لديك دالة fromJson في كلاس DailyEntry
+        }).toList();
+        isDataLoaded = true;
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEntries();  // تحميل المدخلات عند بدء الصفحة
   }
 
   @override
@@ -50,10 +65,10 @@ class _DailyPageState extends State<DailyPage> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
-                  columnSpacing: 20, // زيادة التباعد بين الأعمدة
-                  horizontalMargin: 12, // المسافة بين النصوص والحواف
-                  headingRowHeight: 60, // ارتفاع رأس الجدول
-                  dataRowHeight: 60, // ارتفاع صفوف البيانات
+                  columnSpacing: 20,
+                  horizontalMargin: 12,
+                  headingRowHeight: 60,
+                  dataRowHeight: 60,
                   headingTextStyle: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -61,232 +76,86 @@ class _DailyPageState extends State<DailyPage> {
                   ),
                   border: TableBorder.all(
                     color: Colors.grey.shade400,
-                    width: 1, // عرض الخطوط بين الخلايا
+                    width: 1,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   headingRowColor: MaterialStateProperty.all(widget.tableColor),
-                    columns: [
-                      DataColumn(
-                        label: Container(
-                          padding: const EdgeInsets.all(18.0),
-                          child: Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                'الاسم',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                            child: Text(
-                              'التاريخ',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                'البيان',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Center(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                            child: Text(
-                              'ذهب لنا',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                'سوري لنا',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Center(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                            child: Text(
-                              'ذهب له',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                'سوري له',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // إضافة عمود للـ Notes
-                    ],
-
-
+                  columns: [
+                    DataColumn(label: _buildCenteredText('الاسم')),
+                    DataColumn(label: _buildCenteredText('التاريخ')),
+                    DataColumn(label: _buildCenteredText('البيان')),
+                    DataColumn(label: _buildCenteredText('ذهب لنا')),
+                    DataColumn(label: _buildCenteredText('سوري لنا')),
+                    DataColumn(label: _buildCenteredText('ذهب له')),
+                    DataColumn(label: _buildCenteredText('سوري له')),
+                  ],
                   rows: dailyEntries.map((entry) {
-                    return DataRow(
-                      cells: [
-                        DataCell(
-                          Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                entry.name,
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                DateFormat('yyyy-MM-dd').format(entry.date),
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                entry.notes,
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                entry.goldForUs.toString(),
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                entry.syrianForUs.toString(),
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                entry.goldForHim.toString(),
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Center(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown, // تغيير حجم النص ليتم تناسبه مع المساحة
-                              child: Text(
-                                entry.syrianForHim.toString(),
-                                style: TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
+                    return DataRow(cells: [
+                      DataCell(_buildCenteredText(entry.name)),
+                      DataCell(_buildCenteredText(DateFormat('yyyy-MM-dd').format(entry.date))),
+                      DataCell(_buildCenteredText(entry.notes)),
+                      DataCell(_buildCenteredText(entry.goldForUs.toString())),
+                      DataCell(_buildCenteredText(entry.syrianForUs.toString())),
+                      DataCell(_buildCenteredText(entry.goldForHim.toString())),
+                      DataCell(_buildCenteredText(entry.syrianForHim.toString())),
+                    ]);
                   }).toList(),
                 ),
               ),
             )
                 : Center(
-              child: Text(
-                'لا توجد مدخلات حالياً',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: Text('لا توجد مدخلات حالياً'),
             ),
           ],
         ),
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 30.0, right: 20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            // زر إضافة مدخلات
-            FloatingActionButton(
-              onPressed: () async {
-                final DailyEntry? newEntry = await showDialog<DailyEntry>(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return AddDailyEntryDialog(
-                      tableColor: widget.tableColor,
-                      onEntrySaved: (DailyEntry entry) {
-                        setState(() {
-                          dailyEntries.add(entry);
-                          isDataLoaded = true;
-                        });
-                      },
-                    );
+        child: FloatingActionButton(
+          onPressed: () async {
+            final DailyEntry? newEntry = await showDialog<DailyEntry>(
+              context: context,
+              builder: (BuildContext context) {
+                return AddDailyEntryDialog(
+                  tableColor: widget.tableColor,
+                  onEntrySaved: (DailyEntry entry) {
+                    setState(() {
+                      dailyEntries.add(entry);
+                      isDataLoaded = true;
+                    });
+                    _saveEntry(entry);  // حفظ المدخل في SharedPreferences
                   },
                 );
               },
-              backgroundColor: widget.tableColor,
-              child: const Icon(Icons.add, color: Colors.white),
-            ),
-          ],
+            );
+          },
+          backgroundColor: widget.tableColor,
+          child: const Icon(Icons.add, color: Colors.white),
         ),
+      ),
+    );
+  }
+
+  // دالة لحفظ المدخل الجديد في SharedPreferences
+  Future<void> _saveEntry(DailyEntry entry) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> entries = prefs.getStringList('dailyEntries') ?? [];
+
+    // تحويل الكائن إلى JSON ثم إضافته إلى القائمة
+    String entryJson = jsonEncode(entry.toJson());  // تأكد من أن لديك دالة toJson في كلاس DailyEntry
+    entries.add(entryJson);
+
+    // حفظ المدخلات مرة أخرى
+    await prefs.setStringList('dailyEntries', entries);
+  }
+
+  // دالة لبناء النصوص مع المحاذاة المركزية
+  Widget _buildCenteredText(String text) {
+    return Center(
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 14),
       ),
     );
   }
