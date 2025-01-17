@@ -2,9 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/services.dart'; // لإضافة inputFormatters
-// تعديل المسار حسب المكان الذي يحتوي على الكلاس
-import '../../data/entity/daily_entity.dart'; // تأكد من أن لديك كلاس DailyEntry مع دوال toJson و fromJson
+import 'package:flutter/services.dart';
+import '../../data/entity/daily_entity.dart';
 
 class DailyPage extends StatefulWidget {
   final String title;
@@ -30,6 +29,7 @@ class _DailyPageState extends State<DailyPage> {
   final _syrianForUsController = TextEditingController();
   final _goldForHimController = TextEditingController();
   final _syrianForHimController = TextEditingController();
+  String _customer = ''; // حفظ القيمة المحددة للزبون
   DateTime _selectedDate = DateTime.now();
 
   DailyEntry? _editingEntry;
@@ -38,7 +38,7 @@ class _DailyPageState extends State<DailyPage> {
   @override
   void initState() {
     super.initState();
-    _loadEntries(); // تحميل المدخلات عند بدء الصفحة
+    _loadEntries();
   }
 
   Future<void> _loadEntries() async {
@@ -67,7 +67,8 @@ class _DailyPageState extends State<DailyPage> {
         _goldForUsController.text.isEmpty ||
         _syrianForUsController.text.isEmpty ||
         _goldForHimController.text.isEmpty ||
-        _syrianForHimController.text.isEmpty) {
+        _syrianForHimController.text.isEmpty ||
+        _customer.isEmpty) { // التحقق من إدخال الزبون
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('الرجاء ملء جميع الحقول')));
       return;
     }
@@ -84,6 +85,7 @@ class _DailyPageState extends State<DailyPage> {
       syrianForUs: syrianForUs,
       goldForHim: goldForHim,
       syrianForHim: syrianForHim,
+      customer: _customer, // استخدام القيمة المحددة للزبون
       date: _selectedDate,
       tableColor: widget.tableColor,
     );
@@ -108,6 +110,7 @@ class _DailyPageState extends State<DailyPage> {
     _syrianForUsController.clear();
     _goldForHimController.clear();
     _syrianForHimController.clear();
+    _customer = ''; // مسح حقل الزبون
   }
 
   @override
@@ -155,10 +158,10 @@ class _DailyPageState extends State<DailyPage> {
                     DataColumn(label: _buildCenteredText('سوري لنا')),
                     DataColumn(label: _buildCenteredText('ذهب له')),
                     DataColumn(label: _buildCenteredText('سوري له')),
+                    DataColumn(label: _buildCenteredText('الزبون')), // عمود الزبون
                     DataColumn(label: _buildCenteredText('الاجراءات')),
                   ],
                   rows: [
-                    // الحقول لإضافة مدخل جديد أو تعديله
                     DataRow(cells: [
                       DataCell(
                         Center(
@@ -212,6 +215,26 @@ class _DailyPageState extends State<DailyPage> {
                       ),
                       DataCell(
                         Center(
+                          child: DropdownButton<String>(
+                            value: _customer.isEmpty ? null : _customer,
+                            hint: Text("اختر الزبون"),
+                            items: <String>['ورشة', 'مكتب', 'ذمم']
+                                .map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _customer = newValue!;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Center(
                           child: ElevatedButton(
                             onPressed: _saveEntry,
                             child: Text(_editingEntry != null ? 'حفظ' : 'إضافة'),
@@ -228,6 +251,7 @@ class _DailyPageState extends State<DailyPage> {
                         DataCell(_buildCenteredText(entry.syrianForUs.toString())),
                         DataCell(_buildCenteredText(entry.goldForHim.toString())),
                         DataCell(_buildCenteredText(entry.syrianForHim.toString())),
+                        DataCell(_buildCenteredText(entry.customer)), // عرض الزبون
                         DataCell(
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -239,13 +263,13 @@ class _DailyPageState extends State<DailyPage> {
                                     _editingEntry = entry;
                                     _editingIndex = dailyEntries.indexOf(entry);
 
-                                    // تعبئة الحقول بالمعلومات الحالية
                                     _nameController.text = entry.name;
                                     _noteController.text = entry.notes;
                                     _goldForUsController.text = entry.goldForUs.toString();
                                     _syrianForUsController.text = entry.syrianForUs.toString();
                                     _goldForHimController.text = entry.goldForHim.toString();
                                     _syrianForHimController.text = entry.syrianForHim.toString();
+                                    _customer = entry.customer; // تعبئة حقل الزبون
                                     _selectedDate = entry.date;
                                   });
                                 },

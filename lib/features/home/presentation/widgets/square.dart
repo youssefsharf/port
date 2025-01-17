@@ -1,38 +1,42 @@
-
 import 'package:flutter/material.dart';
-import '../../../dialy/presentation/pages/dailyPage.dart'; // تأكد من أن الاستيراد صحيح
+import '../../../dialy/presentation/pages/dailyPage.dart';
 
 class Square extends StatelessWidget {
   final String title;
   final Color color;
-  final IconData icon; // Add an icon parameter
+  final IconData icon;
 
   const Square({
     super.key,
     required this.title,
     required this.color,
-    required this.icon, // Make icon required
+    required this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DailyPage(
-              title: title, // Pass the title to the DailyPage
-              tableColor: color, // Pass the color to the DailyPage
+        if (title == "اليومية") {
+          // إذا كان العنوان هو "اليومية"
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DailyPage(
+                title: title,
+                tableColor: color,
+              ),
             ),
-          ),
-        );
+          );
+        }
+
+        // إذا كان العنوان ليس "اليومية"، لا يحدث شيء أو يمكن تنفيذ سلوك آخر
       },
       child: Container(
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(30.0), // More rounded corners
-          boxShadow: [ // Add a subtle shadow
+          borderRadius: BorderRadius.circular(30.0),
+          boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
               spreadRadius: 2,
@@ -42,13 +46,13 @@ class Square extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16.0), // Add padding
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
-                size: 57.0, // Adjust icon size if needed
+                size: 57.0,
                 color: Colors.white,
               ),
               const SizedBox(height: 8.0),
@@ -57,7 +61,7 @@ class Square extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 25.0, // Adjust font size for better readability
+                  fontSize: 25.0,
                   fontWeight: FontWeight.bold,
                 ),
               ),
