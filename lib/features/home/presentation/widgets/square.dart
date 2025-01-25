@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../debts/presentation/pages/debts.dart';
 import '../../../dialy/presentation/pages/dailyPage.dart';
+import '../../../office/presentation/pages/office.dart';
+import '../../../workshop/presentation/pages/workshop.dart';
+// استيراد الصفحات المناسبة
 
 class Square extends StatelessWidget {
   final String title;
@@ -22,15 +26,52 @@ class Square extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => DailyPage(
+              builder: (context) => DailyPage( title: title,
+                tableColor: color,
+                initialEntries: const [],), // استبدل EmployeeDataGridSource بصفحة مناسبة
+            ),
+          );
+        }
+        if (title == "الورشة") {
+          // إذا كان العنوان هو "الورشة"
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WorkShopPage(
                 title: title,
                 tableColor: color,
+                initialEntries: [],
               ),
             ),
           );
         }
-
-        // إذا كان العنوان ليس "اليومية"، لا يحدث شيء أو يمكن تنفيذ سلوك آخر
+        if (title == "المكتب") {
+          // إذا كان العنوان هو "المكتب"
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OfficePage(
+                title: title,
+                tableColor: color,
+                initialEntries: [],
+              ),
+            ),
+          );
+        }
+        if (title == "الذمم") {
+          // إذا كان العنوان هو "الذمم"
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DebtsPage(
+                title: title,
+                tableColor: color,
+                initialEntries: [],
+              ),
+            ),
+          );
+        }
+        // يمكنك إضافة المزيد من الصفحات هنا إذا لزم الأمر
       },
       child: Container(
         decoration: BoxDecoration(

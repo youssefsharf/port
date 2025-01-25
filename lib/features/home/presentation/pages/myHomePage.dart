@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../dialy/presentation/pages/dailyPage.dart';
+
 import '../widgets/square.dart';
 
 class MyHomePage extends StatelessWidget {
@@ -25,7 +25,7 @@ class MyHomePage extends StatelessWidget {
           ),
           child: const Center(
             child: Text(
-              'دفتر اليوميه',
+              'Hisabat',
               style: TextStyle(fontSize: 20),
               textAlign: TextAlign.center,
             ),
@@ -36,7 +36,9 @@ class MyHomePage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            int crossAxisCount = constraints.maxWidth > 600 ? 2 : 1; // أعمدة أكثر عند الشاشة العريضة
+            int crossAxisCount = constraints.maxWidth > 600
+                ? 2
+                : 1; // أعمدة أكثر عند الشاشة العريضة
             return GridView.count(
               crossAxisCount: crossAxisCount,
               mainAxisSpacing: 16.0,
@@ -45,22 +47,22 @@ class MyHomePage extends StatelessWidget {
               children: [
                 Square(
                   title: 'اليومية',
-                  color: Colors.blue,
+                  color: Color(0xFF4A958D),
                   icon: Icons.calendar_today,
                 ),
                 Square(
                   title: 'الذمم',
-                  color: Colors.green,
+                  color: Color(0xFF63CCCA),
                   icon: Icons.account_balance,
                 ),
                 Square(
                   title: 'الورشة',
-                  color: Colors.orange,
+                  color: Color(0xFF5DA399),
                   icon: Icons.build,
                 ),
                 Square(
                   title: 'المكتب',
-                  color: Colors.purple,
+                  color: Color(0xFF42858C),
                   icon: Icons.business,
                 ),
               ],
