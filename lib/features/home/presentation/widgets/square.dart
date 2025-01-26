@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../debts/presentation/pages/debts.dart';
 import '../../../dialy/presentation/pages/dailyPage.dart';
+import '../../../dialy/presentation/pages/ff.dart';
 import '../../../office/presentation/pages/office.dart';
 import '../../../workshop/presentation/pages/workshop.dart';
 // استيراد الصفحات المناسبة
@@ -67,6 +68,19 @@ class Square extends StatelessWidget {
                 title: title,
                 tableColor: color,
                 initialEntries: [],
+              ),
+            ),
+          );
+        }
+        if (title == "معلومات الزبون") {
+          // إذا كان العنوان هو "الذمم"
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CustomerInfoPage(
+                title: title,
+                tableColor: color, customerEntries: [],
+               // initialEntries: [],
               ),
             ),
           );

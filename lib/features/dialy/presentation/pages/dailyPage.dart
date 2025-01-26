@@ -8,15 +8,18 @@ import '../../../../data/models/daily_entity.dart';
 import '../../../debts/presentation/pages/debts.dart';
 import '../../../office/presentation/pages/office.dart';
 import '../../../workshop/presentation/pages/workshop.dart';
+import 'ff.dart';
 
 class DailyPage extends StatefulWidget {
   final String title;
   final Color tableColor;
+  final List<DailyEntry> initialEntries;
 
   const DailyPage({
     super.key,
     required this.title,
-    required this.tableColor, required List initialEntries,
+    required this.tableColor,
+    required this.initialEntries,
   });
 
   @override
@@ -31,10 +34,12 @@ class _DailyPageState extends State<DailyPage> {
   final _noteController = TextEditingController();
   final _goldForUsController = TextEditingController();
   final _goldForHimController = TextEditingController();
+  final _customerController = TextEditingController();
   String _customer = ''; // حفظ القيمة المحددة للزبون
   DateTime _selectedDate = DateTime.now();
   String _selectedFilterCustomer = ''; // فلتر الزبون
   String _nameFilter = ''; // فلتر الاسم
+  bool _isNewCustomer = false; // لتتبع حالة الزبون
 
   DailyEntry? _editingEntry;
   int? _editingIndex;
@@ -45,6 +50,7 @@ class _DailyPageState extends State<DailyPage> {
   @override
   void initState() {
     super.initState();
+    dailyEntries = widget.initialEntries;
     _loadEntries();
   }
 
@@ -76,6 +82,13 @@ class _DailyPageState extends State<DailyPage> {
     double goldForUs = double.tryParse(_goldForUsController.text) ?? 0;
     double goldForHim = double.tryParse(_goldForHimController.text) ?? 0;
 
+    // التحقق مما إذا كان الزبون موجودًا مسبقًا
+    bool isCustomerExisting = dailyEntries.any((entry) => entry.customer == _customer);
+
+    setState(() {
+      _isNewCustomer = !isCustomerExisting; // تحديث حالة الزبون
+    });
+
     final newEntry = DailyEntry(
       name: _nameController.text,
       notes: _noteController.text,
@@ -84,6 +97,7 @@ class _DailyPageState extends State<DailyPage> {
       customer: _customer,
       date: _selectedDate,
       tableColor: widget.tableColor,
+      customerInfo: _isNewCustomer ? _customerController.text : '', // حفظ معلومات الزبون إذا كان جديدًا
     );
 
     if (_editingEntry != null && _editingIndex != null) {
@@ -101,10 +115,12 @@ class _DailyPageState extends State<DailyPage> {
     // حفظ المدخلات باستخدام DataManager
     await dataManager.saveEntry(newEntry);
 
+    // مسح الحقول بعد الحفظ
     _nameController.clear();
     _noteController.clear();
     _goldForUsController.clear();
     _goldForHimController.clear();
+    _customerController.clear();
     _customer = ''; // مسح حقل الزبون
   }
 
@@ -163,7 +179,21 @@ class _DailyPageState extends State<DailyPage> {
         dailyEntries.removeWhere((entry) => entry.customer == 'مكتب');
       });
     }
-
+    if (officeEntries.isNotEmpty) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CustomerInfoPage(
+            title: 'معلومات الزبون', // عنوان الصفحة
+            tableColor: widget.tableColor, // لون الجدول
+            customerEntries: officeEntries, // قائمة المدخلات
+          ),
+        ),
+      );
+      setState(() {
+        dailyEntries.removeWhere((entry) => entry.customer == 'مكتب'); // إزالة المدخلات من القائمة الرئيسية
+      });
+    }
     // تحديث المدخلات في SharedPreferences بعد التصدير
     await dataManager.updateEntries(dailyEntries);
   }
@@ -199,38 +229,49 @@ class _DailyPageState extends State<DailyPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // فلتر لاختيار الزبون
-                    DropdownButton<String>(
-                      value: _selectedFilterCustomer.isEmpty
-                          ? null
-                          : _selectedFilterCustomer,
-                      hint: Text("اختر الزبون للتصفية"),
-                      items: <String>['', 'ورشة', 'مكتب', 'ذمم']
-                          .map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedFilterCustomer = newValue!;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    // حقل البحث حسب الاسم
-                    TextField(
-                      onChanged: (value) {
-                        setState(() {
-                          _nameFilter = value;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        labelText: 'ابحث بالاسم',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                      ),
+                    // صف يحتوي على حقل الفلترة وحقل البحث
+                    Row(
+                      children: [
+                        // حقل الفلترة
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButton<String>(
+                            value: _selectedFilterCustomer.isEmpty
+                                ? null
+                                : _selectedFilterCustomer,
+                            hint: Text("اختر الزبون للتصفية"),
+                            items: <String>['', 'ورشة', 'مكتب', 'ذمم']
+                                .map((String value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(value),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _selectedFilterCustomer = newValue!;
+                              });
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 10), // مسافة بين العنصرين
+                        // حقل البحث
+                        Expanded(
+                          flex: 3,
+                          child: TextField(
+                            onChanged: (value) {
+                              setState(() {
+                                _nameFilter = value;
+                              });
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'ابحث بالاسم',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 20),
                     if (isDataLoaded)
@@ -262,6 +303,8 @@ class _DailyPageState extends State<DailyPage> {
                               DataColumn(label: buildCenteredText('ذهب لنا')),
                               DataColumn(label: buildCenteredText('ذهب له')),
                               DataColumn(label: buildCenteredText('الزبون')),
+                              if (_isNewCustomer) // إظهار العمود فقط إذا كان الزبون جديدًا
+                                DataColumn(label: buildCenteredText('معلومات الزبون')),
                               DataColumn(label: buildCenteredText('الاجراءات')),
                             ],
                             rows: [
@@ -328,18 +371,30 @@ class _DailyPageState extends State<DailyPage> {
                                       onChanged: (String? newValue) {
                                         setState(() {
                                           _customer = newValue!;
+                                          // التحقق مما إذا كان الزبون موجودًا مسبقًا
+                                          _isNewCustomer = !dailyEntries.any((entry) => entry.customer == _customer);
                                         });
                                       },
                                     ),
                                   ),
                                 ),
+                                if (_isNewCustomer) // إظهار الخلية فقط إذا كان الزبون جديدًا
+                                  DataCell(
+                                    Center(
+                                      child: TextField(
+                                        controller: _customerController,
+                                        decoration: InputDecoration(
+                                          hintText: "معلومات الزبون",
+                                          border: OutlineInputBorder(),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 DataCell(
                                   Center(
                                     child: ElevatedButton(
                                       onPressed: _saveEntry,
-                                      child: Text(_editingEntry != null
-                                          ? 'حفظ'
-                                          : 'إضافة'),
+                                      child: Text(_editingEntry != null ? 'حفظ' : 'إضافة'),
                                     ),
                                   ),
                                 ),
@@ -348,14 +403,13 @@ class _DailyPageState extends State<DailyPage> {
                               ...filteredEntries.map((entry) {
                                 return DataRow(cells: [
                                   DataCell(buildCenteredText(entry.name)),
-                                  DataCell(buildCenteredText(
-                                      DateFormat('yyyy-MM-dd').format(entry.date))),
+                                  DataCell(buildCenteredText(DateFormat('yyyy-MM-dd').format(entry.date))),
                                   DataCell(buildCenteredText(entry.notes)),
-                                  DataCell(buildCenteredText(
-                                      entry.goldForUs.toString())),
-                                  DataCell(buildCenteredText(
-                                      entry.goldForHim.toString())),
+                                  DataCell(buildCenteredText(entry.goldForUs.toString())),
+                                  DataCell(buildCenteredText(entry.goldForHim.toString())),
                                   DataCell(buildCenteredText(entry.customer)),
+                                  if (_isNewCustomer) // إظهار الخلية فقط إذا كان الزبون جديدًا
+                                    DataCell(buildCenteredText(entry.customerInfo)),
                                   DataCell(
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
@@ -365,19 +419,16 @@ class _DailyPageState extends State<DailyPage> {
                                           onPressed: () {
                                             setState(() {
                                               _editingEntry = entry;
-                                              _editingIndex =
-                                                  dailyEntries.indexOf(entry);
+                                              _editingIndex = dailyEntries.indexOf(entry);
 
                                               _nameController.text = entry.name;
                                               _noteController.text = entry.notes;
-                                              _goldForUsController.text =
-                                                  entry.goldForUs.toString();
-
-                                              _goldForHimController.text =
-                                                  entry.goldForHim.toString();
-
+                                              _goldForUsController.text = entry.goldForUs.toString();
+                                              _goldForHimController.text = entry.goldForHim.toString();
                                               _customer = entry.customer;
                                               _selectedDate = entry.date;
+                                              _customerController.text = entry.customerInfo;
+                                              _isNewCustomer = !dailyEntries.any((e) => e.customer == _customer); // تحديث حالة الزبون
                                             });
                                           },
                                         ),
