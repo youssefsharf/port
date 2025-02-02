@@ -1,37 +1,53 @@
 import 'dart:convert';
-
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../data/models/daily_entity.dart';
 
 class DataManager {
-  // دالة لتحميل المدخلات المخزنة من SharedPreferences
-  Future<List<DailyEntry>> loadEntries() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? entries = prefs.getStringList('dailyEntries');
-
-    return entries
-        ?.map((entry) => DailyEntry.fromJson(jsonDecode(entry)))
-        .toList() ?? [];
-  }
-
-  // دالة لتحديث المدخلات المخزنة في SharedPreferences
-  Future<void> updateEntries(List<DailyEntry> entries) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    List<String> encodedEntries = entries.map((entry) => jsonEncode(entry.toJson())).toList();
-    await prefs.setStringList('dailyEntries', encodedEntries);
-  }
-
-  // دالة لإضافة إدخال جديد إلى المدخلات المخزنة في SharedPreferences
+  // حفظ مدخل واحد
   Future<void> saveEntry(DailyEntry entry) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? entries = prefs.getStringList('dailyEntries');
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> storedEntries = prefs.getStringList('dailyEntries') ?? [];
 
-    // إذا كانت المدخلات موجودة، أضف الإدخال الجديد إليها، وإذا لم تكن موجودة، قم بإنشائها
-    entries = entries ?? [];
-    entries.add(jsonEncode(entry.toJson()));
+    String entryJson = jsonEncode(entry.toJson());
+    storedEntries.add(entryJson);
 
-    await prefs.setStringList('dailyEntries', entries);
+    await prefs.setStringList('dailyEntries', storedEntries);
+  }
+
+  // تحميل جميع المدخلات المحفوظة
+  Future<List<DailyEntry>> loadEntries() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> storedEntries = prefs.getStringList('dailyEntries') ?? [];
+
+    List<DailyEntry> entries = storedEntries
+        .map((entryJson) => DailyEntry.fromJson(jsonDecode(entryJson)))
+        .toList();
+
+    return entries;
+  }
+
+  // تحديث المدخلات في SharedPreferences
+  Future<void> updateEntries(List<DailyEntry> entries) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    List<String> entryJsonList =
+    entries.map((entry) => jsonEncode(entry.toJson())).toList();
+    await prefs.setStringList('dailyEntries', entryJsonList);
+  }
+
+  // حذف مدخل محدد
+  Future<void> deleteEntry(DailyEntry entry) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> storedEntries = prefs.getStringList('dailyEntries') ?? [];
+
+    List<DailyEntry> entries = storedEntries
+        .map((entryJson) => DailyEntry.fromJson(jsonDecode(entryJson)))
+        .toList();
+
+    entries.remove(entry);
+
+    List<String> entryJsonList =
+    entries.map((entry) => jsonEncode(entry.toJson())).toList();
+    await prefs.setStringList('dailyEntries', entryJsonList);
   }
 }

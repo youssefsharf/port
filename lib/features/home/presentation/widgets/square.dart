@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../debts/presentation/pages/debts.dart';
 import '../../../dialy/presentation/pages/dailyPage.dart';
-import '../../../dialy/presentation/pages/ff.dart';
+import '../../../dialy/presentation/pages/customerInfoPage.dart';
 import '../../../office/presentation/pages/office.dart';
 import '../../../workshop/presentation/pages/workshop.dart';
 // استيراد الصفحات المناسبة
@@ -28,8 +28,8 @@ class Square extends StatelessWidget {
             context,
             MaterialPageRoute(
               builder: (context) => DailyPage( title: title,
-                tableColor: color,
-                initialEntries: const [],), // استبدل EmployeeDataGridSource بصفحة مناسبة
+                initialEntries: const [],
+                tableColor: color,), // استبدل EmployeeDataGridSource بصفحة مناسبة
             ),
           );
         }
@@ -72,19 +72,7 @@ class Square extends StatelessWidget {
             ),
           );
         }
-        if (title == "معلومات الزبون") {
-          // إذا كان العنوان هو "الذمم"
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CustomerInfoPage(
-                title: title,
-                tableColor: color, customerEntries: [],
-               // initialEntries: [],
-              ),
-            ),
-          );
-        }
+
         // يمكنك إضافة المزيد من الصفحات هنا إذا لزم الأمر
       },
       child: Container(

@@ -8,7 +8,8 @@ class DailyEntry {
   double goldForHim;
   String customer;
   Color tableColor;
-  String customerInfo; // إضافة حقل جديد
+  String customerInfo;
+  // إضافة حقل جديد
 
   DailyEntry({
     required this.name,

@@ -65,11 +65,7 @@ class MyHomePage extends StatelessWidget {
                   color: Color(0xFF42858C),
                   icon: Icons.business,
                 ),
-                Square(
-                  title: 'معلومات الزبون',
-                  color: Color(0xFF42858C),
-                  icon: Icons.business,
-                ),
+
               ],
             );
           },

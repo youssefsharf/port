@@ -23,7 +23,9 @@ class DebtsPage extends StatefulWidget {
 class _DebtsPageState extends State<DebtsPage> {
   List<DailyEntry> debtsEntries = [];
   List<DailyEntry> filteredEntries = [];
-  String? selectedName; // الاسم المختار من القائمة المنسدلة
+  String? selectedName;
+  DateTime? selectedDate;
+  List<String> availableNames = [];
 
   @override
   void initState() {
@@ -38,57 +40,91 @@ class _DebtsPageState extends State<DebtsPage> {
     List<String>? storedEntries = prefs.getStringList('debtsEntries');
 
     if (storedEntries != null) {
-      // فك ترميز البيانات المحفوظة وتحويلها إلى كائنات DailyEntry
       List<DailyEntry> oldEntries = storedEntries
           .map((entry) => DailyEntry.fromJson(jsonDecode(entry)))
           .toList();
 
-      // دمج البيانات القديمة مع البيانات الجديدة
       setState(() {
         debtsEntries = oldEntries + widget.initialEntries;
-        filteredEntries = debtsEntries; // في البداية جميع الإدخالات معروضة
+        // ترتيب الإدخالات من الأحدث إلى الأقدم
+        debtsEntries.sort((a, b) => b.date.compareTo(a.date));
+        filteredEntries = debtsEntries;
+        availableNames = debtsEntries.map((entry) => entry.name).toSet().toList();
       });
     } else {
-      // إذا لم تكن هناك بيانات محفوظة، استخدم البيانات الجديدة فقط
       setState(() {
         debtsEntries = widget.initialEntries;
-        filteredEntries = debtsEntries; // في البداية جميع الإدخالات معروضة
+        debtsEntries.sort((a, b) => b.date.compareTo(a.date)); // ترتيب من الأحدث للأقدم
+        filteredEntries = debtsEntries;
+        availableNames = debtsEntries.map((entry) => entry.name).toSet().toList();
       });
     }
 
-    // حفظ البيانات الجديدة
     _saveDebtsEntries();
   }
 
   Future<void> _saveDebtsEntries() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String> entries =
-    debtsEntries.map((entry) => jsonEncode(entry.toJson())).toList();
-    await prefs.setStringList('debtsEntries', entries); // حفظ جميع البيانات
+    List<String> entries = debtsEntries.map((entry) => jsonEncode(entry.toJson())).toList();
+    await prefs.setStringList('debtsEntries', entries);
   }
 
-  // دوال لحساب المجموع
   double get totalGoldForUs => filteredEntries.fold(0, (sum, entry) => sum + entry.goldForUs);
   double get totalGoldForHim => filteredEntries.fold(0, (sum, entry) => sum + entry.goldForHim);
 
-  // فلترة الإدخالات بناءً على الاسم المختار
-  void _filterEntries(String? selectedName) {
+  void _filterEntriesByName(String? name) {
     setState(() {
-      if (selectedName == null || selectedName.isEmpty) {
-        filteredEntries = debtsEntries; // عرض جميع الإدخالات إذا لم يتم اختيار أي اسم
+      if (name == null || name.isEmpty) {
+        filteredEntries = debtsEntries;
       } else {
-        filteredEntries = debtsEntries
-            .where((entry) => entry.name == selectedName) // الفلترة حسب الاسم المختار
-            .toList();
+        filteredEntries = debtsEntries.where((entry) {
+          return entry.name == name;
+        }).toList();
       }
+      filteredEntries.sort((a, b) => b.date.compareTo(a.date)); // ترتيب من الأحدث للأقدم
     });
   }
 
+  void _filterEntriesByDate(DateTime? date) {
+    setState(() {
+      if (date == null) {
+        filteredEntries = debtsEntries;
+      } else {
+        filteredEntries = debtsEntries.where((entry) {
+          return DateFormat('yyyy-MM-dd').format(entry.date) ==
+              DateFormat('yyyy-MM-dd').format(date);
+        }).toList();
+      }
+      filteredEntries.sort((a, b) => b.date.compareTo(a.date)); // ترتيب من الأحدث للأقدم
+    });
+  }
+
+
+  void _showNamePicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return ListView(
+          children: availableNames.map((name) {
+            return ListTile(
+              title: Text(name),
+              onTap: () {
+                setState(() {
+                  selectedName = name;
+                  _filterEntriesByName(selectedName); // تصفية الإدخالات بناءً على الاسم فقط
+                });
+                Navigator.pop(context);
+              },
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    // قائمة الأسماء الفريدة للاختيار منها
-    List<String> uniqueNames = debtsEntries.map((entry) => entry.name).toSet().toList();
-
     return Scaffold(
       appBar: AppBar(
         title: Padding(
@@ -102,73 +138,95 @@ class _DebtsPageState extends State<DebtsPage> {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 10),
-              // إضافة DropdownButton لاختيار الاسم
-              DropdownButton<String>(
-                hint: Text("اختر الاسم للفلترة"),
-                value: selectedName,
-                items: uniqueNames.map((name) {
-                  return DropdownMenuItem<String>(
-                    value: name,
-                    child: Text(name),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedName = value;
-                  });
-                  _filterEntries(value); // استدعاء دالة الفلترة عند تغيير الاختيار
-                },
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _showNamePicker(context),
+                      child: Text(
+                        selectedName == null ? "اختر الاسم" : selectedName!,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2101),
+                        );
+                        if (pickedDate != null) {
+                          setState(() {
+                            selectedDate = pickedDate;
+                            _filterEntriesByDate(selectedDate);
+                          });
+                        }
+                      },
+                      child: Text(
+                        selectedDate == null
+                            ? "اختر التاريخ"
+                            : DateFormat('yyyy-MM-dd').format(selectedDate!),
+                      ),
+                    ),
+                  ),
+
+                ],
               ),
               const SizedBox(height: 20),
               Expanded(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columnSpacing: 22,
-                    horizontalMargin: 10,
-                    headingRowHeight: 60,
-                    dataRowHeight: 70,
-                    headingTextStyle: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: DataTable(
+                      columnSpacing: 22,
+                      horizontalMargin: 10,
+                      headingRowHeight: 60,
+                      dataRowHeight: 70,
+                      headingTextStyle: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                      border: TableBorder.all(
+                        color: Colors.grey.shade400,
+                        width: 1,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      headingRowColor:
+                      MaterialStateProperty.all(widget.tableColor),
+                      columns: [
+                        DataColumn(label: _buildCenteredText('الاسم', width: 150)),
+                        DataColumn(label: _buildCenteredText('التاريخ', width: 100)),
+                        DataColumn(label: _buildCenteredText('البيان', width: 150)),
+                        DataColumn(label: _buildCenteredText('ذهب لنا')),
+                        DataColumn(label: _buildCenteredText('ذهب له')),
+                        DataColumn(label: _buildCenteredText('الزبون')),
+                      ],
+                      rows: filteredEntries.map((entry) {
+                        return DataRow(cells: [
+                          DataCell(_buildCenteredText(entry.name)),
+                          DataCell(_buildCenteredText(
+                              DateFormat('yyyy-MM-dd').format(entry.date))),
+                          DataCell(_buildCenteredText(entry.notes)),
+                          DataCell(
+                              _buildCenteredText(entry.goldForUs.toString())),
+                          DataCell(
+                              _buildCenteredText(entry.goldForHim.toString())),
+                          DataCell(_buildCenteredText(entry.customer)),
+                        ]);
+                      }).toList(),
                     ),
-                    border: TableBorder.all(
-                      color: Colors.grey.shade400,
-                      width: 1,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    headingRowColor:
-                    MaterialStateProperty.all(widget.tableColor),
-                    columns: [
-                      DataColumn(label: _buildCenteredText('الاسم', width: 150)),
-                      DataColumn(
-                          label: _buildCenteredText('التاريخ', width: 100)),
-                      DataColumn(
-                          label: _buildCenteredText('البيان', width: 150)),
-                      DataColumn(label: _buildCenteredText('ذهب لنا')),
-                      DataColumn(label: _buildCenteredText('ذهب له')),
-                      DataColumn(label: _buildCenteredText('الزبون')),
-                    ],
-                    rows: filteredEntries.map((entry) {
-                      return DataRow(cells: [
-                        DataCell(_buildCenteredText(entry.name)),
-                        DataCell(_buildCenteredText(
-                            DateFormat('yyyy-MM-dd').format(entry.date))),
-                        DataCell(_buildCenteredText(entry.notes)),
-                        DataCell(
-                            _buildCenteredText(entry.goldForUs.toString())),
-                        DataCell(
-                            _buildCenteredText(entry.goldForHim.toString())),
-                        DataCell(_buildCenteredText(entry.customer)),
-                      ]);
-                    }).toList(),
                   ),
                 ),
               ),
-              // إضافة المجموع أسفل الجدول باستخدام Padding
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16.0),
                 child: Center(
@@ -177,12 +235,14 @@ class _DebtsPageState extends State<DebtsPage> {
                     children: [
                       Text(
                         "مجموع ذهب لنا: ${totalGoldForUs.toStringAsFixed(2)}",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       SizedBox(width: 20),
                       Text(
                         "مجموع ذهب له: ${totalGoldForHim.toStringAsFixed(2)}",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),

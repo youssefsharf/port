@@ -1,14 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/widgets/export.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../data/models/daily_entity.dart';
 import '../../../debts/presentation/pages/debts.dart';
 import '../../../office/presentation/pages/office.dart';
 import '../../../workshop/presentation/pages/workshop.dart';
-import 'ff.dart';
+import 'customerInfoPage.dart';
+
+class SharedPreferencesHelper {
+  static const String _nameKey = 'names';
+
+  static Future<void> saveName(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> names = await loadNames();
+    if (!names.contains(name)) {
+      names.add(name);
+      await prefs.setStringList(_nameKey, names);
+    }
+  }
+
+  static Future<List<String>> loadNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_nameKey) ?? [];
+  }
+}
 
 class DailyPage extends StatefulWidget {
   final String title;
@@ -35,17 +53,18 @@ class _DailyPageState extends State<DailyPage> {
   final _goldForUsController = TextEditingController();
   final _goldForHimController = TextEditingController();
   final _customerController = TextEditingController();
-  String _customer = ''; // حفظ القيمة المحددة للزبون
+  String _customer = '';
   DateTime _selectedDate = DateTime.now();
-  String _selectedFilterCustomer = ''; // فلتر الزبون
-  String _nameFilter = ''; // فلتر الاسم
-  bool _isNewCustomer = false; // لتتبع حالة الزبون
-
+  String _selectedFilterCustomer = '';
+  String _nameFilter = '';
+  bool _isNewCustomer = false;
   DailyEntry? _editingEntry;
   int? _editingIndex;
 
-  double get totalGoldForUs => dailyEntries.fold(0, (sum, entry) => sum + entry.goldForUs);
-  double get totalGoldForHim => dailyEntries.fold(0, (sum, entry) => sum + entry.goldForHim);
+  double get totalGoldForUs =>
+      dailyEntries.fold(0, (sum, entry) => sum + entry.goldForUs);
+  double get totalGoldForHim =>
+      dailyEntries.fold(0, (sum, entry) => sum + entry.goldForHim);
 
   @override
   void initState() {
@@ -55,17 +74,9 @@ class _DailyPageState extends State<DailyPage> {
   }
 
   Future<void> _loadEntries() async {
-    setState(() {
-      isDataLoaded = false;
-    });
-
-    // تحميل المدخلات باستخدام DataManager
-    List<DailyEntry> entries = await dataManager.loadEntries();
-
-    setState(() {
-      dailyEntries = entries;
-      isDataLoaded = true;
-    });
+    setState(() => isDataLoaded = false);
+    dailyEntries = await dataManager.loadEntries();
+    setState(() => isDataLoaded = true);
   }
 
   Future<void> _saveEntry() async {
@@ -74,20 +85,17 @@ class _DailyPageState extends State<DailyPage> {
         _goldForUsController.text.isEmpty ||
         _goldForHimController.text.isEmpty ||
         _customer.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('الرجاء ملء جميع الحقول')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('الرجاء ملء جميع الحقول')),
+      );
       return;
     }
 
+    // Save name in SharedPreferences
+    SharedPreferencesHelper.saveName(_nameController.text);
+
     double goldForUs = double.tryParse(_goldForUsController.text) ?? 0;
     double goldForHim = double.tryParse(_goldForHimController.text) ?? 0;
-
-    // التحقق مما إذا كان الزبون موجودًا مسبقًا
-    bool isCustomerExisting = dailyEntries.any((entry) => entry.customer == _customer);
-
-    setState(() {
-      _isNewCustomer = !isCustomerExisting; // تحديث حالة الزبون
-    });
 
     final newEntry = DailyEntry(
       name: _nameController.text,
@@ -97,7 +105,7 @@ class _DailyPageState extends State<DailyPage> {
       customer: _customer,
       date: _selectedDate,
       tableColor: widget.tableColor,
-      customerInfo: _isNewCustomer ? _customerController.text : '', // حفظ معلومات الزبون إذا كان جديدًا
+      customerInfo: _isNewCustomer ? _customerController.text : '',
     );
 
     if (_editingEntry != null && _editingIndex != null) {
@@ -112,60 +120,58 @@ class _DailyPageState extends State<DailyPage> {
       });
     }
 
-    // حفظ المدخلات باستخدام DataManager
     await dataManager.saveEntry(newEntry);
 
-    // مسح الحقول بعد الحفظ
+    // تفريغ الحقول بعد الحفظ
     _nameController.clear();
     _noteController.clear();
     _goldForUsController.clear();
     _goldForHimController.clear();
     _customerController.clear();
-    _customer = ''; // مسح حقل الزبون
+    _customer = '';
+    _selectedDate = DateTime.now(); // إعادة تعيين التاريخ إلى التاريخ الحالي
+    _isNewCustomer = false; // إعادة تعيين حالة الزبون الجديد
+
+    // إعادة تعيين حالة التعديل
+    setState(() {
+      _editingEntry = null;
+      _editingIndex = null;
+    });
   }
 
-  // دالة لتصدير البيانات
   Future<void> _exportData() async {
-    // تصفية البيانات حسب الزبون
-    List<DailyEntry> workshopEntries =
-    dailyEntries.where((entry) => entry.customer == 'ورشة').toList();
-    List<DailyEntry> officeEntries =
-    dailyEntries.where((entry) => entry.customer == 'مكتب').toList();
-    List<DailyEntry> debtsEntries =
-    dailyEntries.where((entry) => entry.customer == 'ذمم').toList();
+    List<DailyEntry> workshopEntries = dailyEntries.where((entry) => entry.customer == 'ورشة').toList();
+    List<DailyEntry> officeEntries = dailyEntries.where((entry) => entry.customer == 'مكتب').toList();
+    List<DailyEntry> debtsEntries = dailyEntries.where((entry) => entry.customer == 'ذمم').toList();
 
     if (workshopEntries.isNotEmpty) {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => WorkShopPage(
-            title: 'ورشة العمل',
+            title: 'الورشة',
             tableColor: widget.tableColor,
             initialEntries: workshopEntries,
           ),
         ),
       );
-      setState(() {
-        dailyEntries.removeWhere((entry) => entry.customer == 'ورشة');
-      });
     }
+
     if (debtsEntries.isNotEmpty) {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => DebtsPage(
-            title: 'ذمم',
+            title: 'الذمم',
             tableColor: widget.tableColor,
             initialEntries: debtsEntries,
           ),
         ),
       );
-      setState(() {
-        dailyEntries.removeWhere((entry) => entry.customer == 'ذمم');
-      });
     }
+
     if (officeEntries.isNotEmpty) {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => OfficePage(
@@ -175,40 +181,28 @@ class _DailyPageState extends State<DailyPage> {
           ),
         ),
       );
-      setState(() {
-        dailyEntries.removeWhere((entry) => entry.customer == 'مكتب');
-      });
     }
-    if (officeEntries.isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CustomerInfoPage(
-            title: 'معلومات الزبون', // عنوان الصفحة
-            tableColor: widget.tableColor, // لون الجدول
-            customerEntries: officeEntries, // قائمة المدخلات
-          ),
-        ),
-      );
-      setState(() {
-        dailyEntries.removeWhere((entry) => entry.customer == 'مكتب'); // إزالة المدخلات من القائمة الرئيسية
-      });
-    }
-    // تحديث المدخلات في SharedPreferences بعد التصدير
+
+    setState(() {
+      dailyEntries.removeWhere((entry) =>
+      entry.customer == 'ورشة' ||
+          entry.customer == 'ذمم' ||
+          entry.customer == 'مكتب');
+    });
+
     await dataManager.updateEntries(dailyEntries);
   }
 
   @override
   Widget build(BuildContext context) {
-    // تصفية المدخلات حسب الزبون المحدد
     List<DailyEntry> filteredEntries = dailyEntries.where((entry) {
-      bool matchesCustomerFilter = _selectedFilterCustomer.isEmpty ||
-          entry.customer == _selectedFilterCustomer;
-      bool matchesNameFilter = _nameFilter.isEmpty ||
-          entry.name.contains(_nameFilter);
-
+      bool matchesCustomerFilter = _selectedFilterCustomer.isEmpty || entry.customer == _selectedFilterCustomer;
+      bool matchesNameFilter = _nameFilter.isEmpty || entry.name.contains(_nameFilter);
       return matchesCustomerFilter && matchesNameFilter;
     }).toList();
+
+    filteredEntries.sort((a, b) => a.date.compareTo(b.date));
+    filteredEntries = filteredEntries.reversed.toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -229,33 +223,27 @@ class _DailyPageState extends State<DailyPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // صف يحتوي على حقل الفلترة وحقل البحث
                     Row(
                       children: [
-                        // حقل الفلترة
                         Expanded(
                           flex: 2,
                           child: DropdownButton<String>(
-                            value: _selectedFilterCustomer.isEmpty
-                                ? null
-                                : _selectedFilterCustomer,
+                            value: _selectedFilterCustomer.isEmpty ? null : _selectedFilterCustomer,
                             hint: Text("اختر الزبون للتصفية"),
                             items: <String>['', 'ورشة', 'مكتب', 'ذمم']
-                                .map((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
+                                .map((value) => DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            ))
+                                .toList(),
+                            onChanged: (newValue) {
                               setState(() {
                                 _selectedFilterCustomer = newValue!;
                               });
                             },
                           ),
                         ),
-                        SizedBox(width: 10), // مسافة بين العنصرين
-                        // حقل البحث
+                        SizedBox(width: 10),
                         Expanded(
                           flex: 3,
                           child: TextField(
@@ -294,31 +282,89 @@ class _DailyPageState extends State<DailyPage> {
                               width: 1,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            headingRowColor:
-                            MaterialStateProperty.all(widget.tableColor),
+                            headingRowColor: MaterialStateProperty.all(widget.tableColor),
                             columns: [
                               DataColumn(label: buildCenteredText('الاسم', width: 150)),
                               DataColumn(label: buildCenteredText('التاريخ', width: 100)),
                               DataColumn(label: buildCenteredText('البيان', width: 150)),
                               DataColumn(label: buildCenteredText('ذهب لنا')),
                               DataColumn(label: buildCenteredText('ذهب له')),
-                              DataColumn(label: buildCenteredText('الزبون')),
-                              if (_isNewCustomer) // إظهار العمود فقط إذا كان الزبون جديدًا
-                                DataColumn(label: buildCenteredText('معلومات الزبون')),
+                              DataColumn(label: buildCenteredText('مكان الفاتوره')),
+                              if (_isNewCustomer) DataColumn(label: buildCenteredText('معلومات الزبون')),
                               DataColumn(label: buildCenteredText('الاجراءات')),
                             ],
                             rows: [
                               DataRow(cells: [
                                 DataCell(
                                   Center(
-                                    child: buildTextField(_nameController, 'الاسم'),
+                                    child: Autocomplete<String>(
+                                      optionsBuilder: (TextEditingValue textEditingValue) async {
+                                        if (textEditingValue.text.isEmpty) {
+                                          return const Iterable<String>.empty(); // لا تظهر اقتراحات إذا كان الحقل فارغًا
+                                        }
+
+                                        List<String> savedNames = await SharedPreferencesHelper.loadNames();
+                                        final names = savedNames.toSet().toList();
+                                        return names.where((option) =>
+                                            option.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                                      },
+                                      onSelected: (String selection) {
+                                        // لا تقم بتعبئة _nameController تلقائيًا هنا
+                                      },
+                                      fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
+                                        return SizedBox(
+                                          width: 150, // عرض حقل النص
+                                          child: TextField(
+                                            controller: fieldTextEditingController,
+                                            focusNode: fieldFocusNode,
+                                            decoration: InputDecoration(
+                                              labelText: 'الاسم',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                            onChanged: (value) {
+                                              // تحديث _nameController عند تغيير النص يدويًا
+                                              _nameController.text = value;
+                                            },
+                                          ),
+                                        );
+                                      },
+                                      optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                                        return Align(
+                                          alignment: Alignment.topRight, // محاذاة الاقتراحات أسفل حقل النص
+                                          child: Material(
+                                            elevation: 4, // إضافة ظل لتحسين الرؤية
+                                            child: SizedBox(
+                                              width: 150, // نفس عرض حقل النص
+                                              child: ListView.builder(
+                                                padding: EdgeInsets.all(0),
+                                                itemCount: options.length,
+                                                shrinkWrap: true,
+                                                itemBuilder: (BuildContext context, int index) {
+                                                  final String option = options.elementAt(index);
+                                                  return GestureDetector(
+                                                    onTap: () {
+                                                      onSelected(option); // اختيار الاقتراح
+                                                    },
+                                                    child: ListTile(
+                                                      title: Text(
+                                                        '$option', // عرض الاقتراح
+                                                        textAlign: TextAlign.center, // محاذاة النص في المنتصف
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
                                 DataCell(
                                   GestureDetector(
                                     onTap: () async {
-                                      final DateTime? picked =
-                                      await showDatePicker(
+                                      final DateTime? picked = await showDatePicker(
                                         context: context,
                                         initialDate: _selectedDate,
                                         firstDate: DateTime(2000),
@@ -330,76 +376,44 @@ class _DailyPageState extends State<DailyPage> {
                                         });
                                       }
                                     },
-                                    child: Center(
-                                      child: buildCenteredText(
-                                          DateFormat('yyyy-MM-dd')
-                                              .format(_selectedDate)),
-                                    ),
+                                    child: Center(child: buildCenteredText(DateFormat('yyyy-MM-dd').format(_selectedDate))),
                                   ),
                                 ),
-                                DataCell(
-                                  Center(
-                                    child: buildTextField(_noteController, 'البيان'),
-                                  ),
-                                ),
-                                DataCell(
-                                  Center(
-                                    child: buildTextField(
-                                        _goldForUsController, 'ذهب لنا',
-                                        isNumber: true),
-                                  ),
-                                ),
-                                DataCell(
-                                  Center(
-                                    child: buildTextField(
-                                        _goldForHimController, 'ذهب له',
-                                        isNumber: true),
-                                  ),
-                                ),
+                                DataCell(Center(child: buildTextField(_noteController, 'البيان'))),
+                                DataCell(Center(child: buildTextField(_goldForUsController, 'ذهب لنا', isNumber: true))),
+                                DataCell(Center(child: buildTextField(_goldForHimController, 'ذهب له', isNumber: true))),
                                 DataCell(
                                   Center(
                                     child: DropdownButton<String>(
                                       value: _customer.isEmpty ? null : _customer,
-                                      hint: Text("اختر الزبون"),
-                                      items: <String>['ورشة', 'مكتب', 'ذمم']
-                                          .map((String value) {
+                                      hint: Text("اختر المكان"),
+                                      items: <String>['ورشة', 'مكتب', 'ذمم'].map((value) {
                                         return DropdownMenuItem<String>(
                                           value: value,
-                                          child: Text(value),
+                                          child: Center( // Center the text inside each DropdownMenuItem
+                                            child: Text(value),
+                                          ),
                                         );
                                       }).toList(),
-                                      onChanged: (String? newValue) {
+                                      onChanged: (newValue) {
                                         setState(() {
                                           _customer = newValue!;
-                                          // التحقق مما إذا كان الزبون موجودًا مسبقًا
                                           _isNewCustomer = !dailyEntries.any((entry) => entry.customer == _customer);
                                         });
                                       },
                                     ),
                                   ),
                                 ),
-                                if (_isNewCustomer) // إظهار الخلية فقط إذا كان الزبون جديدًا
-                                  DataCell(
-                                    Center(
-                                      child: TextField(
-                                        controller: _customerController,
-                                        decoration: InputDecoration(
-                                          hintText: "معلومات الزبون",
-                                          border: OutlineInputBorder(),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                DataCell(
-                                  Center(
-                                    child: ElevatedButton(
-                                      onPressed: _saveEntry,
-                                      child: Text(_editingEntry != null ? 'حفظ' : 'إضافة'),
-                                    ),
-                                  ),
-                                ),
+                                if (_isNewCustomer)
+                                  DataCell(Center(child: TextField(
+                                    controller: _customerController,
+                                    decoration: InputDecoration(hintText: "معلومات الزبون", border: OutlineInputBorder()),
+                                  ))),
+                                DataCell(Center(child: ElevatedButton(
+                                  onPressed: _saveEntry,
+                                  child: Text(_editingEntry != null ? 'حفظ' : 'إضافة'),
+                                ))),
                               ]),
-                              // عرض البيانات المفلترة
                               ...filteredEntries.map((entry) {
                                 return DataRow(cells: [
                                   DataCell(buildCenteredText(entry.name)),
@@ -408,63 +422,52 @@ class _DailyPageState extends State<DailyPage> {
                                   DataCell(buildCenteredText(entry.goldForUs.toString())),
                                   DataCell(buildCenteredText(entry.goldForHim.toString())),
                                   DataCell(buildCenteredText(entry.customer)),
-                                  if (_isNewCustomer) // إظهار الخلية فقط إذا كان الزبون جديدًا
-                                    DataCell(buildCenteredText(entry.customerInfo)),
-                                  DataCell(
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        IconButton(
-                                          icon: Icon(Icons.edit, color: Colors.blue),
-                                          onPressed: () {
-                                            setState(() {
-                                              _editingEntry = entry;
-                                              _editingIndex = dailyEntries.indexOf(entry);
-
-                                              _nameController.text = entry.name;
-                                              _noteController.text = entry.notes;
-                                              _goldForUsController.text = entry.goldForUs.toString();
-                                              _goldForHimController.text = entry.goldForHim.toString();
-                                              _customer = entry.customer;
-                                              _selectedDate = entry.date;
-                                              _customerController.text = entry.customerInfo;
-                                              _isNewCustomer = !dailyEntries.any((e) => e.customer == _customer); // تحديث حالة الزبون
-                                            });
-                                          },
-                                        ),
-                                        IconButton(
-                                          icon: Icon(Icons.delete, color: Colors.red),
-                                          onPressed: () {
-                                            setState(() {
-                                              dailyEntries.remove(entry);
-                                              dataManager.updateEntries(dailyEntries);
-                                            });
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                  if (_isNewCustomer) DataCell(buildCenteredText(entry.customerInfo)),
+                                  DataCell(Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(Icons.edit, color: Colors.blue),
+                                        onPressed: () {
+                                          setState(() {
+                                            _editingEntry = entry;
+                                            _editingIndex = dailyEntries.indexOf(entry);
+                                            _nameController.text = entry.name;
+                                            _noteController.text = entry.notes;
+                                            _goldForUsController.text = entry.goldForUs.toString();
+                                            _goldForHimController.text = entry.goldForHim.toString();
+                                            _customer = entry.customer;
+                                            _selectedDate = entry.date;
+                                            _customerController.text = entry.customerInfo;
+                                            _isNewCustomer = !dailyEntries.any((e) => e.customer == _customer);
+                                          });
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.delete, color: Colors.red),
+                                        onPressed: () {
+                                          setState(() {
+                                            dailyEntries.remove(entry);
+                                            dataManager.updateEntries(dailyEntries);
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  )),
                                 ]);
                               }).toList(),
                             ],
                           ),
                         ),
                       ),
-                    // عرض مجموع الذهب
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            "مجموع ذهب لنا: ${totalGoldForUs.toStringAsFixed(2)}",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                          Text("مجموع ذهب لنا: ${totalGoldForUs.toStringAsFixed(2)}", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           SizedBox(width: 20),
-                          Text(
-                            "مجموع ذهب له: ${totalGoldForHim.toStringAsFixed(2)}",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                          Text("مجموع ذهب له: ${totalGoldForHim.toStringAsFixed(2)}", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),

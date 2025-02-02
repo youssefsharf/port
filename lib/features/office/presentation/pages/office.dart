@@ -24,6 +24,7 @@ class _OfficePageState extends State<OfficePage> {
   List<DailyEntry> officeEntries = [];
   List<DailyEntry> filteredEntries = []; // قائمة الإدخالات بعد الفلترة
   String? selectedName; // الاسم المحدد في القائمة المنسدلة
+  DateTime? selectedDate; // التاريخ المحدد للفلترة
   List<String> availableNames = []; // قائمة الأسماء المتاحة
 
   @override
@@ -47,6 +48,10 @@ class _OfficePageState extends State<OfficePage> {
       // دمج البيانات القديمة مع البيانات الجديدة
       setState(() {
         officeEntries = oldEntries + widget.initialEntries;
+
+        // ترتيب الإدخالات من الأحدث إلى الأقدم
+        officeEntries.sort((a, b) => b.date.compareTo(a.date));
+
         filteredEntries = officeEntries; // عرض جميع الإدخالات في البداية
         availableNames = officeEntries.map((entry) => entry.name).toSet().toList(); // استخراج الأسماء المتاحة
       });
@@ -54,6 +59,10 @@ class _OfficePageState extends State<OfficePage> {
       // إذا لم تكن هناك بيانات محفوظة، استخدم البيانات الجديدة فقط
       setState(() {
         officeEntries = widget.initialEntries;
+
+        // ترتيب الإدخالات من الأحدث إلى الأقدم
+        officeEntries.sort((a, b) => b.date.compareTo(a.date));
+
         filteredEntries = officeEntries; // عرض جميع الإدخالات في البداية
         availableNames = officeEntries.map((entry) => entry.name).toSet().toList(); // استخراج الأسماء المتاحة
       });
@@ -73,19 +82,55 @@ class _OfficePageState extends State<OfficePage> {
   double get totalGoldForUs => filteredEntries.fold(0, (sum, entry) => sum + entry.goldForUs);
   double get totalGoldForHim => filteredEntries.fold(0, (sum, entry) => sum + entry.goldForHim);
 
-  // دالة الفلترة بناءً على الاسم المحدد
-  void _filterEntries(String? name) {
+  // دالة الفلترة بناءً على الاسم والتاريخ المحددين
+  void _filterEntriesByName(String? name) {
     setState(() {
       if (name == null || name.isEmpty) {
-        filteredEntries = officeEntries; // عرض جميع الإدخالات إذا لم يتم اختيار أي اسم
+        filteredEntries = officeEntries;
       } else {
         filteredEntries = officeEntries.where((entry) {
-          return entry.name == name; // الفلترة حسب الاسم
+          return entry.name == name;
         }).toList();
       }
+      filteredEntries.sort((a, b) => b.date.compareTo(a.date)); // ترتيب من الأحدث للأقدم
     });
   }
 
+  void _filterEntriesByDate(DateTime? date) {
+    setState(() {
+      if (date == null) {
+        filteredEntries = officeEntries;
+      } else {
+        filteredEntries = officeEntries.where((entry) {
+          return DateFormat('yyyy-MM-dd').format(entry.date) ==
+              DateFormat('yyyy-MM-dd').format(date);
+        }).toList();
+      }
+      filteredEntries.sort((a, b) => b.date.compareTo(a.date)); // ترتيب من الأحدث للأقدم
+    });
+
+  }
+  void _showNamePicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return ListView(
+          children: availableNames.map((name) {
+            return ListTile(
+              title: Text(name),
+              onTap: () {
+                setState(() {
+                  selectedName = name;
+                  _filterEntriesByName(selectedName); // تصفية الإدخالات بناءً على الاسم فقط
+                });
+                Navigator.pop(context);
+              },
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -104,61 +149,87 @@ class _OfficePageState extends State<OfficePage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              // إضافة القائمة المنسدلة لاختيار الاسم
-              DropdownButton<String>(
-                hint: Text("اختر الاسم"),
-                value: selectedName,
-                items: availableNames.map((name) {
-                  return DropdownMenuItem<String>(
-                    value: name,
-                    child: Text(name),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedName = value; // تحديث الاسم المحدد
-                    _filterEntries(selectedName); // تطبيق الفلترة
-                  });
-                },
+              // وضع حقل الاسم وحقل التاريخ بجانب بعضهما
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // زر اختيار الاسم
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => _showNamePicker(context),
+                      child: Text(
+                        selectedName == null ? "اختر الاسم" : selectedName!,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2101),
+                        );
+                        if (pickedDate != null) {
+                          setState(() {
+                            selectedDate = pickedDate;
+                            _filterEntriesByDate(selectedDate);
+                          });
+                        }
+                      },
+                      child: Text(
+                        selectedDate == null
+                            ? "اختر التاريخ"
+                            : DateFormat('yyyy-MM-dd').format(selectedDate!),
+                      ),
+                    ),
+                  ),
+
+                ],
               ),
               const SizedBox(height: 20),
               Expanded(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columnSpacing: 22,
-                    horizontalMargin: 10,
-                    headingRowHeight: 60,
-                    dataRowHeight: 70,
-                    headingTextStyle: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: DataTable(
+                      columnSpacing: 22,
+                      horizontalMargin: 10,
+                      headingRowHeight: 60,
+                      dataRowHeight: 70,
+                      headingTextStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                      border: TableBorder.all(
+                        color: Colors.grey.shade400,
+                        width: 1,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      headingRowColor: MaterialStateProperty.all(widget.tableColor),
+                      columns: [
+                        DataColumn(label: _buildCenteredText('الاسم', width: 150)),
+                        DataColumn(label: _buildCenteredText('التاريخ', width: 100)),
+                        DataColumn(label: _buildCenteredText('البيان', width: 150)),
+                        DataColumn(label: _buildCenteredText('ذهب لنا')),
+                        DataColumn(label: _buildCenteredText('ذهب له')),
+                        DataColumn(label: _buildCenteredText('الزبون')),
+                      ],
+                      rows: filteredEntries.map((entry) {
+                        return DataRow(cells: [
+                          DataCell(_buildCenteredText(entry.name)),
+                          DataCell(_buildCenteredText(DateFormat('yyyy-MM-dd').format(entry.date))),
+                          DataCell(_buildCenteredText(entry.notes)),
+                          DataCell(_buildCenteredText(entry.goldForUs.toString())),
+                          DataCell(_buildCenteredText(entry.goldForHim.toString())),
+                          DataCell(_buildCenteredText(entry.customer)),
+                        ]);
+                      }).toList(),
                     ),
-                    border: TableBorder.all(
-                      color: Colors.grey.shade400,
-                      width: 1,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    headingRowColor: MaterialStateProperty.all(widget.tableColor),
-                    columns: [
-                      DataColumn(label: _buildCenteredText('الاسم', width: 150)),
-                      DataColumn(label: _buildCenteredText('التاريخ', width: 100)),
-                      DataColumn(label: _buildCenteredText('البيان', width: 150)),
-                      DataColumn(label: _buildCenteredText('ذهب لنا')),
-                      DataColumn(label: _buildCenteredText('ذهب له')),
-                      DataColumn(label: _buildCenteredText('الزبون')),
-                    ],
-                    rows: filteredEntries.map((entry) {
-                      return DataRow(cells: [
-                        DataCell(_buildCenteredText(entry.name)),
-                        DataCell(_buildCenteredText(DateFormat('yyyy-MM-dd').format(entry.date))),
-                        DataCell(_buildCenteredText(entry.notes)),
-                        DataCell(_buildCenteredText(entry.goldForUs.toString())),
-                        DataCell(_buildCenteredText(entry.goldForHim.toString())),
-                        DataCell(_buildCenteredText(entry.customer)),
-                      ]);
-                    }).toList(),
                   ),
                 ),
               ),
@@ -170,12 +241,12 @@ class _OfficePageState extends State<OfficePage> {
                     children: [
                       Text(
                         "مجموع ذهب لنا: ${totalGoldForUs.toStringAsFixed(2)}",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(width: 20),
+                      const SizedBox(width: 20),
                       Text(
                         "مجموع ذهب له: ${totalGoldForHim.toStringAsFixed(2)}",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
